@@ -1,0 +1,92 @@
+#include "master.hh"
+#include <cstdint>
+
+void 
+masterNb::sendReqThread() {
+    int addr_cnt {0};
+    uint8_t txn_id {0};
+    int data_area_cnt {0};
+    unsigned char* wr_data {wrDataArea};
+    tlm::tlm_phase t_phase = tlm::BEGIN_REQ;
+    // sc_core::sc_time t_delay = sc_core::sc_time(1, sc_core::SC_NS);
+    sc_core::sc_time t_delay = sc_core::SC_ZERO_TIME;
+
+    while (1) {
+        tlm::tlm_generic_payload *t_payload = new tlm::tlm_generic_payload();
+        t_payload->set_address(0x10000 + addr_cnt);
+        t_payload->set_write();
+        t_payload->set_data_ptr(wr_data);
+
+        AXIExtension* t_ext = new AXIExtension;
+        t_ext->attr.id = txn_id;
+        t_ext->attr.addr = (uint32_t)t_payload->get_address();
+        t_payload->set_extension(t_ext);
+
+        std::cout << "\033[35m" << this->name()
+            << " [" << sc_core::sc_time_stamp() << "]"
+            << " call nb_transport_fw, BEGIN_REQ phase, addr=0x" 
+            << std::hex << t_payload->get_address()
+            << " delay cycle 0" << "\033[0m" << std::endl;
+        initPort->nb_transport_fw(*t_payload, t_phase, t_delay);
+
+        // update corresponding cnt and data
+        txn_id++;
+        addr_cnt++;
+        wr_data += 4;
+
+        // wait the finish of hsk
+        wait(slvEndReqEvt);
+        wait(1, sc_core::SC_NS);
+    }
+}
+
+tlm::tlm_sync_enum 
+masterNb::nb_transport_bw_func(tlm::tlm_generic_payload &payload, tlm::tlm_phase &phase, sc_core::sc_time &delay) {
+    switch (phase) {
+    case tlm::END_REQ:
+        std::cout << "\033[31m" << this->name()
+            << " [" << sc_core::sc_time_stamp() << "]"
+            << " nb_transport_bw_func recv END_REQ phase, addr=0x" 
+            << std::hex << payload.get_address() 
+            << "\033[0m" << std::endl;
+        slvEndReqEvt.notify(delay);
+        break;
+    case tlm::BEGIN_RESP:
+        std::cout << "\033[31m" << this->name() 
+            << " [" << sc_core::sc_time_stamp() << "]"
+            << " nb_transport_bw_func recv BEGIN_RESP phase, addr=0x" 
+            << std::hex << payload.get_address() 
+            << "\033[0m" << std::endl;
+        pldEvtQ.notify(payload, delay);
+        break;
+    default:
+        assert(false);
+    }
+    return tlm::TLM_ACCEPTED;
+}
+
+void 
+masterNb::sendEndRespThread() {
+    tlm::tlm_generic_payload *t_get = NULL;
+    tlm::tlm_phase t_phase = tlm::END_RESP;
+    sc_core::sc_time t_delay = sc_core::SC_ZERO_TIME;
+    while (1) {
+        wait(); // wait sensitive event list
+
+        // here must get next transaction entil t_get is NULL
+        // handle all available (ready_time <= sc_time_stamp) transactions
+        // see get_next_transaction() in peq_with_get.h
+        while ((t_get = pldEvtQ.get_next_transaction()) != NULL) {
+            std::cout << "\033[31m" << this->name() 
+                << " [" << sc_core::sc_time_stamp() << "]"
+                << " call nb_transport_fw, END_RESP phase, addr=0x" 
+                << std::hex << t_get->get_address() 
+                << "\033[0m" << std::endl;
+            initPort->nb_transport_fw(*t_get, t_phase, t_delay);
+            t_get = NULL;
+
+            // in this block, must can't wait any event or cycle delay
+            // if not, the time of transaction obtained will not accurate
+        }
+    }
+}
