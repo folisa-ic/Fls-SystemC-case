@@ -42,5 +42,4 @@ public:
     uint32_t curReqNum {0};
     /** current in-flight request oustanding num */
     const uint32_t curReqOst;
- 
 };

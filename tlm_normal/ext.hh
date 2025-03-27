@@ -25,7 +25,6 @@ public:
 class AXIExtension : public tlm::tlm_extension<AXIExtension> {
 public:
     AXIAttr attr;
-
     AXIExtension() = default;
 
     /** create a new extension from this ext */
