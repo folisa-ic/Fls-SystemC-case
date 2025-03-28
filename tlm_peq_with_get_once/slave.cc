@@ -46,17 +46,24 @@ slaveNb::sendEndReqThread() {
 
     sc_core::sc_time t_delay {sc_core::SC_ZERO_TIME};
     while (1) {
-        // if current req num achieve max outstanding,
-        // do not read new req from m_req_fifo
-        if (curReqNum >= curReqOst) {
-            std::cout << "\033[32m" << this->name()
-                << " [" << sc_core::sc_time_stamp() << "]"
-                << " current req num has achieved max outstanding, wait for deallocating" 
-                << "\033[0m" << std::endl;
-            wait(1, sc_core::SC_NS);
-            continue;
-        }
         tlm::tlm_generic_payload *t_payload = m_req_fifo.read();
+        // if current req num achieve max outstanding,
+        // do not handshake with master in req channel
+        while (true) {
+            if (curReqNum >= curReqOst) {
+                std::cout << "\033[90m" << this->name()
+                    << " [" << sc_core::sc_time_stamp() << "]"
+                    << " current req num has achieved max outstanding, pause receiving req" 
+                    << "\033[0m" << std::endl;
+                wait(1, sc_core::SC_NS);
+            } else {
+                std::cout << "\033[32m" << this->name()
+                    << " [" << sc_core::sc_time_stamp() << "]"
+                    << " current req num is lower than max outstanding, start receiving req" 
+                    << "\033[0m" << std::endl;
+                break;
+            }
+        }
         curReqNum++;
 
         /***********************************/
@@ -84,12 +91,12 @@ slaveNb::sendRespThread() {
     sc_core::sc_time t_delay = sc_core::sc_time(10, sc_core::SC_NS);
     while (1) {
         tlm::tlm_generic_payload *t_payload = m_resp_fifo.read();
+        wait(1, sc_core::SC_NS);
         std::cout << "\033[32m" << this->name()
             << " [" << sc_core::sc_time_stamp() << "]"
             << " call nb_transport_bw, BEGIN_RESP phase, addr=0x" 
             << std::hex << t_payload->get_address()
             << " delay cycle 10" << "\033[0m" << std::endl;
         targPort->nb_transport_bw(*t_payload, t_phase, t_delay);
-        wait(1, sc_core::SC_NS);
     }
 }

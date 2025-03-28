@@ -10,39 +10,37 @@ slaveNb::nb_transport_fw_func(tlm::tlm_generic_payload &payload,
     // delay in callback func will block 
     // nb_transport_fw of master, which is not recommended
     wait(delay);
-    switch (phase) {
-    case tlm::BEGIN_REQ:
+    // case value must be a constant expression,
+    // do not use switch-case here
+    if (phase == fls::REQ_VLD) {
         m_req_fifo.write(&payload);
         AXIExtension* t_ext;
         payload.get_extension(t_ext);
 
         std::cout << "\033[32m" << this->name()
             << " [" << sc_core::sc_time_stamp() << "]"
-            << " nb_transport_fw_func recv BEGIN_REQ phase"
+            << " nb_transport_fw_func recv REQ_VLD phase"
             << ", txn_id=" << std::dec << (unsigned)t_ext->attr.id
             << ", addr=0x" << std::hex << payload.get_address()
             << ", wr_data=0x" << *(uint32_t*)(payload.get_data_ptr())
             << "\033[0m" << std::endl;
-        break;
-    case tlm::END_RESP:
+    } else {
+        assert(phase == fls::RSP_RDY);
         curReqNum--;
         assert(curReqNum >= 0);
         std::cout << "\033[32m" << this->name()
             << " [" << sc_core::sc_time_stamp() << "]"
-            << " nb_transport_fw_func recv END_RESP phase, addr=0x" 
+            << " nb_transport_fw_func recv RSP_RDY phase, addr=0x" 
             << std::hex << payload.get_address()
             << ", current req num is " << curReqNum
             << "\033[0m" << std::endl;
-        break;
-    default:
-        assert(false);
     }
     return tlm::TLM_ACCEPTED;
 }
 
 void 
 slaveNb::sendEndReqThread() {
-    tlm::tlm_phase t_phase = tlm::END_REQ;
+    tlm::tlm_phase t_phase = fls::REQ_RDY;
 
     sc_core::sc_time t_delay {sc_core::SC_ZERO_TIME};
     while (1) {
@@ -73,13 +71,13 @@ slaveNb::sendEndReqThread() {
 
         std::cout << "\033[32m" << this->name()
             << " [" << sc_core::sc_time_stamp() << "]"
-            << " call nb_transport_bw, END_REQ phase, addr=0x" 
+            << " call nb_transport_bw, REQ_RDY phase, addr=0x" 
             << std::hex << t_payload->get_address()
             << "\033[0m" << std::endl;
         targPort->nb_transport_bw(*t_payload, t_phase, t_delay);
 
-        // after END_REQ phase, indicate slave recv req successfully,
-        // then handle req, return BEGIN_RESP
+        // after REQ_RDY phase, indicate slave recv req successfully,
+        // then handle req, return RSP_VLD
         m_resp_fifo.write(t_payload);
         wait(1, sc_core::SC_NS);
     }
@@ -87,14 +85,14 @@ slaveNb::sendEndReqThread() {
 
 void 
 slaveNb::sendRespThread() {
-    tlm::tlm_phase t_phase = tlm::BEGIN_RESP;
+    tlm::tlm_phase t_phase = fls::RSP_VLD;
     sc_core::sc_time t_delay = sc_core::sc_time(10, sc_core::SC_NS);
     while (1) {
         tlm::tlm_generic_payload *t_payload = m_resp_fifo.read();
         wait(1, sc_core::SC_NS);
         std::cout << "\033[32m" << this->name()
             << " [" << sc_core::sc_time_stamp() << "]"
-            << " call nb_transport_bw, BEGIN_RESP phase, addr=0x" 
+            << " call nb_transport_bw, RSP_VLD phase, addr=0x" 
             << std::hex << t_payload->get_address()
             << " delay cycle 10" << "\033[0m" << std::endl;
         targPort->nb_transport_bw(*t_payload, t_phase, t_delay);
