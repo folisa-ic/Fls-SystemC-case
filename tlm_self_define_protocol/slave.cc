@@ -55,10 +55,10 @@ slaveNb::sendEndReqThread() {
                     << "\033[0m" << std::endl;
                 wait(1, sc_core::SC_NS);
             } else {
-                std::cout << "\033[32m" << this->name()
-                    << " [" << sc_core::sc_time_stamp() << "]"
-                    << " current req num is lower than max outstanding, start receiving req" 
-                    << "\033[0m" << std::endl;
+                // std::cout << "\033[32m" << this->name()
+                //     << " [" << sc_core::sc_time_stamp() << "]"
+                //     << " current req num is lower than max outstanding, start receiving req" 
+                //     << "\033[0m" << std::endl;
                 break;
             }
         }
