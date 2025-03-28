@@ -1,0 +1,1 @@
+* 继承 tlm_peq_with_get_once 工程，master 和 slave 内部使用 simple_xxx_socket 处理 non-blocking 传输，外部使用 tlm_xxx_socket 互联，即在 master 内部实现 simple_initiator_socket 和 tlm_initiator_socket 的 bind，在 slave 内部实现simple_target_socket 和 tlm_target_socket 的 bind
