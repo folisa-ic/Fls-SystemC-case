@@ -6,7 +6,7 @@ masterNb::sendReqThread() {
     int addr_cnt {0};
     uint8_t txn_id {0};
     int data_area_cnt {0};
-    unsigned char* wr_data {wrDataArea};
+    unsigned char* wr_data_cursor {wrDataArea};
     tlm::tlm_phase t_phase = tlm::BEGIN_REQ;
     // sc_core::sc_time t_delay = sc_core::sc_time(1, sc_core::SC_NS);
     sc_core::sc_time t_delay = sc_core::SC_ZERO_TIME;
@@ -15,7 +15,10 @@ masterNb::sendReqThread() {
         tlm::tlm_generic_payload *t_payload = new tlm::tlm_generic_payload();
         t_payload->set_address(0x10000 + addr_cnt);
         t_payload->set_write();
-        t_payload->set_data_ptr(wr_data);
+        unsigned char* wr_data_ptr = new unsigned char[4];
+        memcpy(wr_data_ptr, wr_data_cursor, sizeof(uint32_t));
+        t_payload->set_data_ptr(wr_data_ptr);
+        t_payload->set_data_length(sizeof(uint32_t));
 
         AXIExtension* t_ext = new AXIExtension;
         t_ext->attr.id = txn_id;
@@ -29,10 +32,10 @@ masterNb::sendReqThread() {
             << " delay cycle 0" << "\033[0m" << std::endl;
         initPort->nb_transport_fw(*t_payload, t_phase, t_delay);
 
-        // update corresponding cnt and data
+        // update corresponding cnt and data cursor
         txn_id++;
         addr_cnt++;
-        wr_data += 4;
+        wr_data_cursor += 4;
 
         // wait the finish of hsk
         wait(slvEndReqEvt);
@@ -83,6 +86,18 @@ masterNb::sendEndRespThread() {
             << "\033[0m" << std::endl;
         std::cout << "peq size (after get_once): " << pldEvtQ.get_num() << std::endl;
         initPort->nb_transport_fw(*t_get, t_phase, t_delay);
+
+        // release tlm_gp
+        if (t_get->get_data_ptr()) {
+            delete[] t_get->get_data_ptr();
+        }
+        t_get->set_data_ptr(nullptr);
+        if (t_get->get_byte_enable_ptr()) {
+            delete[] t_get->get_byte_enable_ptr();
+        }
+        t_get->set_byte_enable_ptr(nullptr);
+        t_get->reset();     // release all extensions
+        delete t_get;
         t_get = NULL;
 
         // in this block, must can't wait any event or cycle delay
