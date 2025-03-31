@@ -95,6 +95,8 @@ slaveNb::sendRespThread() {
             << " call nb_transport_bw, RSP_VLD phase, addr=0x" 
             << std::hex << t_payload->get_address()
             << " delay cycle 10" << "\033[0m" << std::endl;
+        assert(t_payload->get_response_status() == tlm::TLM_INCOMPLETE_RESPONSE);
+        t_payload->set_response_status(tlm::TLM_OK_RESPONSE);
         targPort->nb_transport_bw(*t_payload, t_phase, t_delay);
     }
 }
