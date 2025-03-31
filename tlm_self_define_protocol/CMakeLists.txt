@@ -10,6 +10,9 @@ set(CMAKE_CXX_STANDARD 14)          # 指定 C++14
 set(CMAKE_CXX_STANDARD_REQUIRED ON) # 必须使用指定版本
 set(CMAKE_CXX_EXTENSIONS OFF)       # 禁用 GNU 扩展，强制使用标准 C++
 
+set(CMAKE_C_COMPILER_LAUNCHER ccache)
+set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
+
 set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 
